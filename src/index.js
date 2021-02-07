@@ -466,34 +466,41 @@ async function facebookMain(
     const groupPostsHtmlElements = await page.$x(
         '//article/div[@class="story_body_container"]/div[1]',
     );
-    const groupPostsAuthorHtmlElemments = await page.$x(
+    const groupPostsAuthorHtmlElements = await page.$x(
         '((//article/div[@class="story_body_container"])' +
         '[child::div])/header//strong[1]',
     );
-    const groupPostsLinkHtmlElements = await page.$x(
+    const groupPostsRelDateHtmlElements = await page.$x(
       '((//article/div[@class="story_body_container"])/header' +
       '[child::div]//div[@data\-sigil="m-feed-voice-subtitle"])//a[1]',
-  );
+    );
+    const groupPostsLinkHtmlElements = await page.$x(
+      '((//article/div[@class="story_body_container"])/header' +
+      '[child::div]//div[@data\-sigil="m-feed-voice-subtitle"])//a',
+    );
      
 
     // Looping on each group post html elemen to get text and author
-    for (let i = 0; i < groupPostsAuthorHtmlElemments.length; i++) {
+    for (let i = 0; i < groupPostsAuthorHtmlElements.length; i++) {
+      if ( i > 1 ) break;
       console.log(`i=${i}`);
-      const [postAuthorName, postTextContent, postLinkAdress] = await page.evaluate(
-          (el,eb,ef) => {
-            return [el.textContent, eb.textContent, ef.textContent];
+      const [postAuthorName, postTextContent, postRelDate, postLinkAdress] = await page.evaluate(
+          (el,eb,ef,eh) => {
+            return [el.textContent, eb.textContent, ef.textContent, eh.getAttribute("href")];
           },
-          groupPostsAuthorHtmlElemments[i],
+          groupPostsAuthorHtmlElements[i],
           groupPostsHtmlElements[i],
+          groupPostsRelDateHtmlElements[i],
           groupPostsLinkHtmlElements[i],
       );
-      const postContent = await groupPostsAuthorHtmlElemments[i].$x('//article/div[@class="story_body_container"]//span[1]/p');
+      const postContent = await groupPostsAuthorHtmlElements[i].$x('//article/div[@class="story_body_container"]//span[1]/p');
 
 
       // crates a publication object which contains our publication
       const publication = {
         author: postAuthorName,
         post: postTextContent,
+        date: postRelDate,
         link: postLinkAdress,
       };
 
