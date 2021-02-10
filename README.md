@@ -1,8 +1,7 @@
 # Facebook Group Posts Scraper 
 ​​
-Facebook Group Posts Scraper is a package which is used for scraping facebook groups by their group ids (names).
-It scrapes posts, comments, replies and the number of reactions int oa single json-file.
-So far tested with groups with 900+ posts. 
+Facebook Group Posts Scraper is a package which is used for scraping facebook group posts by their group ids (names).
+Check out brnach grep-subcomments to also scrape comments, replies and reactions.
 ​
 ## Getting Started - Installation
 ​
