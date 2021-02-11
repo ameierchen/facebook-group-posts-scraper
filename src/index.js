@@ -512,7 +512,6 @@ async function getReplies(replyElement) {
         (al,ab,af,ah) => {
           return [al.innerText, ab.innerText, af.innerText, ah.innerText];
         },
-        replyRelDateHtmlElements[i],
         replyAuthorHtmlElements[i],
         replyPostsHtmlElements[i+1],
         replyRelDateHtmlElements[i],
@@ -638,7 +637,6 @@ async function facebookMain(
     );
     post = groupPostsHtmlElements.length;
   } while (pre < post);
-
     const allPublicationsList = getOldPublications(fileName);
     // List contains all publications
 
@@ -678,17 +676,22 @@ async function facebookMain(
     try {
       for (let i = 0; i < groupPostsAuthorHtmlElements.length; i++) {
         run = i;
-        console.log(`i=${i}`);
-        const [postAuthorName, postTextContent, postRelDate, postLinkAdress, postReactions] = await page1.evaluate(
-            (el,eb,ef,eh,ej) => {
-              return [el.textContent, eb.textContent, ef.textContent, eh.getAttribute("href"), ej.textContent];
-            },
-            groupPostsAuthorHtmlElements[i],
-            groupPostsHtmlElements[i],
-            groupPostsRelDateHtmlElements[i],
-            groupPostsLinkHtmlElements[i],
-            groupPostReactionHtmlElements[i],
-        );
+        console.log(`Scraping Post ${i}/${groupPostsAuthorHtmlElements.length}`);
+        let [postAuthorName, postTextContent, postRelDate, postLinkAdress, postReactions] = ("","","","","");
+        try {
+          [postAuthorName, postTextContent, postRelDate, postLinkAdress, postReactions] = await page1.evaluate(
+              (el,eb,ef,eh,ej) => {
+                return [el.textContent, eb.textContent, ef.textContent, eh.getAttribute("href"), ej.textContent];
+              },
+              groupPostsAuthorHtmlElements[i],
+              groupPostsHtmlElements[i],
+              groupPostsRelDateHtmlElements[i],
+              groupPostsLinkHtmlElements[i],
+              groupPostReactionHtmlElements[i],
+          );
+          } catch (err) {
+            ConsoleReporter.log(`Scraping post failed on ${run} with ${err}`);
+          }
         //const postContent = await groupPostsAuthorHtmlElements[i].$x('//article/div[@class="story_body_container"]//span[1]/p');
         // crateas a preliminary publication object which contains author and text of our publication
         const publicationPre = {
