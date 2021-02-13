@@ -9,6 +9,7 @@ It takes around 30-45 seconds per post including affiliated comments and replies
 
 This is a crappy script but it works. I took early works of the original fgps, added comment and reply scraping and added some other features like error catching and reaction counting. But i changed a lot and it is kind of a mess now. The code should be completely rewritten (as the original authors are currently doing).
 I never wrote javascript before hence it is not my finest work ;-)
+
 ​
 ## Getting Started - Installation
 Install current version nodejs (https://nodejs.org/en/download/)
