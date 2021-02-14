@@ -230,6 +230,40 @@ async function autoScroll(page, sleep) {
 }
 
 /**
+* function scrolls the page faster.
+* @namespace fastAutoScroll
+* @param {Page} page the current page opened on browser
+* @param {sleepFunctionCallback} sleep The function used for
+sleeping the current process
+* @return {void} returns nothing but scrolls the page.
+**/
+async function fastAutoScroll(page, sleep) {
+  await page.evaluate(async () => {
+    /**
+    * Function sleeps the current process for given number of milliseconds
+    * @namespace sleep
+    * @param {int} time parameter description
+    * @return {void} returns nothing but sleeps for time ms
+    **/
+    async function sleep(time) {
+      return new Promise(function(resolve) {
+        setTimeout(resolve, time);
+      });
+    }
+
+    for (let i = 0; i < Math.round((Math.random() * 10) + 10); i++) {
+      window.scrollBy(0, document.body.scrollHeight);
+      await sleep(
+          Math.round(
+              (Math.random() * 40) + 1000,
+          ),
+      );
+    }
+    Promise.resolve();
+  });
+}
+
+/**
 * Funciton generates the Facebook group URL from the given group id.
 * @namespace generateFacebookGroupUrlFromId
 * @param {string} groupId facebook group id
@@ -403,7 +437,7 @@ async function getComments(arguments, link, page, sleep) {
   await page.waitForXPath(
     '//div[@data\-sigil="m-mentions-expand"]',
   );
-  await autoScroll(page, sleep);
+  await fastAutoScroll(page, sleep);
   const commentsHtmlElements = await page.$$(
     '[data\-sigil="comment"]',
   );
@@ -424,10 +458,13 @@ async function getComments(arguments, link, page, sleep) {
   );
   // if there are replies this condition is true and starts the reply scraping process
   if ( additionalCommentsLinksElements !== null ) {
+    if (arguments['debug'] === true) {
+      console.log(`klicking ${additionalCommentsLinksElements.length} elements for replies`);
+    };
     for ( let i = 0; i < additionalCommentsLinksElements.length; i++ ) {
       //if we scrape to fast fb will recognize us as a bot. Therefore we scroll every 10th comment with a reply
 	    if ( ( i % 10 === 0 ) && ( i != "0") ) {
-	      await autoScroll(page, sleep);
+	      await fastAutoScroll(page, sleep);
 	    };
       //click every reply announcement to publish the replies
       try {
@@ -451,6 +488,7 @@ async function getComments(arguments, link, page, sleep) {
         if (arguments['debug'] === true) {
           console.log(`getting replies for comment ${i}`);
         };
+        await fastAutoScroll(page, sleep);
         repliesList = await getReplies(arguments, commentsHtmlElements[i]);
     } catch (err) {
         console.log(`WARNING: failed on scraping replies. Continuing...`);
