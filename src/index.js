@@ -388,12 +388,13 @@ function getOldPublications(fileName) {
 /**
 * function gets comments and replies belonging to a post
 * @namespace getComments
+* @param {Object} arguments Command line arguments parsed with minimist
 * @param {string} link Permalink to the post
 * @param {import('puppeteer').Page} page Browserpage used for scraping the comments and replies
 * @param {sleepFunctionCallback} sleep name of the file
 * @return {String[]} returns the list of comments and replies.
 **/
-async function getComments(link, page, sleep) {
+async function getComments(arguments, link, page, sleep) {
   await page.goto(
       link,
       {timeout: 600000},
@@ -450,7 +451,7 @@ async function getComments(link, page, sleep) {
         if (arguments['debug'] === true) {
           console.log(`getting replies for comment ${i}`);
         };
-        repliesList = await getReplies(commentsHtmlElements[i]);
+        repliesList = await getReplies(arguments, commentsHtmlElements[i]);
     } catch (err) {
         console.log(`WARNING: failed on scraping replies. Continuing...`);
         console.log(`${err}`);
@@ -491,10 +492,11 @@ async function getComments(link, page, sleep) {
 /**
 * function gets replies belonging to a comment
 * @namespace getReplies
+* @param {Object} arguments Command line arguments parsed with minimist
 * @param {import('puppeteer').ElementHandle} replyElement Element containig the comment whose replies are supposed to be scraped
 * @return {string[]} returns the list of comments and replies. Returns empty array if there are no replies.
 **/
-async function getReplies(replyElement) {
+async function getReplies(arguments, replyElement) {
   //scraping the comments - works mostly like in the main function with posts but uses an element instead of a page
   const repliesList = [];
   const replyReactionsHtmlElements = await replyElement.$$(
@@ -796,7 +798,7 @@ async function facebookMain(
         // scrapes all comments and replies belonging to our current post (if there are any)
         if ( postLinkAdress !== null ) {
             try {
-                postComments = await getComments(postLinkAdress, page2, sleep);
+                postComments = await getComments(arguments, postLinkAdress, page2, sleep);
             } catch (err) {
                 postComments = "{}";
                 console.log(`WARNING: failed on scraping comments at post ${run}. Continuing...`);
