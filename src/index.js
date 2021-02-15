@@ -779,7 +779,7 @@ async function facebookMain(
     let run = 0;
     let pos = 0; 
     // run is used for debugging/error catching
-    if ( ( end === 0 ) || ( end > groupPostsHtmlElements.length ) ) {
+    if ( ( end === "0" ) || ( end > groupPostsHtmlElements.length ) ) {
       end = groupPostsHtmlElements.length;
     };
     if (arguments['debug'] === true) {
