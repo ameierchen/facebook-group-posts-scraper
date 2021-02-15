@@ -16,7 +16,7 @@ const arguments = minimist(
     process.argv.slice(2),
     {
       string: ['group-ids', 'output', 'start', 'end'],
-      boolean: ['version', 'help', 'debug', 'headful'],
+      boolean: ['version', 'help', 'debug', 'headful', 'screenshot'],
       _: ['init'],
       default: {'output': './'},
       alias: {h: 'help', v: 'version', g: 'group-ids', o: 'output', s: 'start', e: 'end'},
@@ -132,6 +132,7 @@ function help(helpPageLine) {
   helpPageLine('--headful', '     Disable headless mode');
   helpPageLine('-s, --start', '   Number of first post to scrape (optional)');
   helpPageLine('-e, --end', '     Number of last post to scrape (optional)');
+  helpPageLine('--screenshot', '  Take screenshot of every post and save it to the outputfolder (optional)');
   console.info('Available commands:');
   helpPageLine('init', '          Initialize user configuration');
 
@@ -314,7 +315,7 @@ async function incognitoMode(browser) {
    *  and location permissions of Facebook
    **/
   const incognitoContext = await browser.createIncognitoBrowserContext();
-  // Creates a new borwser tab
+  // Creates a new browser tab
   const page = await incognitoContext.newPage();
   return page;
 }
@@ -344,6 +345,26 @@ async function setPageListeners(page) {
       request.continue();
     }
   });
+}
+
+/**
+* Funciton sets the listeners to avoid to load unnecessary content.
+* @namespace setPageListenersComments
+* @param {Page} page The current page of the browser
+* @return {void} returns nothing but configures listeners on the given
+ page to avoid to load
+* unnecessart content
+**/
+async function setPageListenersComments(page) {
+  //await page.setRequestInterception(true);
+  /**const blockResources = [
+    'media', 'font', 'textrack', 'object',
+    'beacon', 'csp_report',
+  ]; 
+  page.on('request', (request) => {
+    const rt = request.resourceType();
+    request.continue();
+  });*/
 }
 
 /**
@@ -426,9 +447,11 @@ function getOldPublications(fileName) {
 * @param {string} link Permalink to the post
 * @param {import('puppeteer').Page} page Browserpage used for scraping the comments and replies
 * @param {sleepFunctionCallback} sleep name of the file
+* @param {number} postNumber internal number of the post
+* @param {string} folder the used folder for saving the screenshot
 * @return {String[]} returns the list of comments and replies.
 **/
-async function getComments(arguments, link, page, sleep) {
+async function getComments(arguments, link, page, sleep, postNumber, folder) {
   await page.goto(
       link,
       {timeout: 600000},
@@ -476,6 +499,20 @@ async function getComments(arguments, link, page, sleep) {
       }
     };
   };
+  await fastAutoScroll(page, sleep);
+  if (arguments['screenshot'] === true) {
+    try{
+      if (arguments['debug'] === true) {
+        console.log(`taking screenshot of post ${postNumber}`);
+      };
+      let screenshotFile = folder + postNumber + '.pdf';
+      await page.emulateMediaType('screen');
+      const height = await page.evaluate(() => document.body.scrollHeight);
+      await page.pdf({ path: screenshotFile, height: height, printBackground: true });
+    } catch (err) {
+      console.log(`screenshot failed ${err}`)
+    };
+  };
   //scraping the comments - works mostly like in the main function with posts
   if (arguments['debug'] === true) {
     console.log(`found ${commentsPostsHtmlElements.length} comments`);
@@ -488,7 +525,6 @@ async function getComments(arguments, link, page, sleep) {
         if (arguments['debug'] === true) {
           console.log(`getting replies for comment ${i}`);
         };
-        await fastAutoScroll(page, sleep);
         repliesList = await getReplies(arguments, commentsHtmlElements[i]);
     } catch (err) {
         console.log(`WARNING: failed on scraping replies. Continuing...`);
@@ -526,6 +562,8 @@ async function getComments(arguments, link, page, sleep) {
   };
   return commentsList;
 }
+
+
 
 /**
 * function gets replies belonging to a comment
@@ -623,8 +661,8 @@ loading the older publications
 * @param {autoScrollFunction} autoScroll The function used for
 scrolling automatically
 * @param {sleepFunctionCallback} sleep The sleep function that we use in autoScroll
-* @param {string} start Number of first post we are supposed to scrape
-* @param {string} end Number of last post we are supposed to scrape
+* @param {number} start Number of first post we are supposed to scrape
+* @param {number} end Number of last post we are supposed to scrape
 * @return {void} returns nothing but scrape all questions from specific groups
 **/
 async function facebookMain(
@@ -670,9 +708,25 @@ async function facebookMain(
   if (arguments['debug'] === true) {
     console.log('Group title ' + groupName);
   }
+
+  //save file into subfolder. Create new folder for every run by naming it by date with a number
   const today = new Date().toISOString().slice(0, 10)
   groupName = groupName.replace(/\//g, '_');
-  const fileName = arguments['output'] + today + '_' + groupName + '.json';
+  let numberedRun = 0;
+  let folder = arguments['output']  + today + '-' + numberedRun + '/';
+  do {
+    numberedRun++;
+    folder = arguments['output'] + today + '-' + numberedRun + '/';
+  } while ( fs.existsSync(folder) )
+  const fileName = folder + groupName + '.json';
+  fs.mkdir( folder, (err) => { 
+      if (err) { 
+          return console.error(err); 
+      }
+      if (arguments['debug'] === true) {
+        console.log(`Directory ${folder} created successfully!`); 
+      };
+  });
 
 
   // we are scrolling trough the entire page until it is completely loaded into cache (not sure if this works for very big groups, tested with ~ 900 posts)
@@ -685,6 +739,7 @@ async function facebookMain(
     );
     pre = groupPostsHtmlElements.length;
     if ( ( end != "0" ) && ( pre > end ) ) {
+      await fastAutoScroll(page, sleep);
       break;
     };
     if (arguments['debug'] === true) {
@@ -721,16 +776,17 @@ async function facebookMain(
         
     // Looping on each group post html element to get text and author
     
-    let run = 0; 
+    let run = 0;
+    let pos = 0; 
     // run is used for debugging/error catching
-    if ( ( end === "0" ) || ( end > groupPostsHtmlElements.length ) ) {
+    if ( ( end === 0 ) || ( end > groupPostsHtmlElements.length ) ) {
       end = groupPostsHtmlElements.length;
     };
     if (arguments['debug'] === true) {
       console.log(`found ${groupPostsHtmlElements.length} posts. Beginning to scrape from ${start} to ${end}`);
     };
     try {
-      for (let i = start; i < end; i++) {
+      for (let i = Number(start); i < end; i++) {
 
         const groupPostsAuthorHtmlElements = await groupPostsHtmlElements[i].$(
           ':scope div[class="story_body_container"] > header strong:first-child > a'
@@ -756,6 +812,9 @@ async function facebookMain(
         // Therefore we grep the links from the pic(s) if it failed to get textcontent
         let postTextContent = "";
         try {
+          if (arguments['debug'] === true) {
+            console.log(`getting text from post`);
+          };
           postTextContent = await page1.evaluate(
             eb => { 
             return eb.textContent;
@@ -763,7 +822,9 @@ async function facebookMain(
             groupPostsStoryHtmlElements,
           );
           if ( postTextContent === "") {
-            //console.log(`no text in post, getting link`);
+            if (arguments['debug'] === true) {
+              console.log(`no text in post, getting link`);
+            };
             const groupPostsStoryLinkHtmlElements = await groupPostsStoryHtmlElements[i].$(
               'a',
             );
@@ -774,11 +835,16 @@ async function facebookMain(
               groupPostsStoryLinkHtmlElements,
             );
           };
-        } catch (err) {};
+        } catch (err) {
+          console.log(`WARNING: Something didn't work out at postText scraping\n${err}`);
+        };
 
         let postReactions = "0";
         if ( groupPostReactionHtmlElements != null ) {
           try {
+            if (arguments['debug'] === true) {
+              console.log(`getting post reactions`);
+            };
             postReactions = await page1.evaluate(
               ej => { 
               return ej.textContent;
@@ -796,6 +862,9 @@ async function facebookMain(
         //console.log(`${postReactions}`);
         let [postAuthorName, postRelDate, postLinkAdress]  = ("","","");
         try {
+          if (arguments['debug'] === true) {
+            console.log(`getting author, date and link from post`);
+          };
           [postAuthorName, postRelDate, postLinkAdress] = await page1.evaluate(
               (el,ef,eh) => {
                 return [el.textContent, ef.textContent, eh.getAttribute("href")];
@@ -836,7 +905,10 @@ async function facebookMain(
         // scrapes all comments and replies belonging to our current post (if there are any)
         if ( postLinkAdress !== null ) {
             try {
-                postComments = await getComments(arguments, postLinkAdress, page2, sleep);
+                if (arguments['debug'] === true) {
+                  console.log(`getting comments from post`);
+                };
+                postComments = await getComments(arguments, postLinkAdress, page2, sleep, pos, folder);
             } catch (err) {
                 postComments = "{}";
                 console.log(`WARNING: failed on scraping comments at post ${run}. Continuing...`);
@@ -847,6 +919,7 @@ async function facebookMain(
         };
         // creates a publication object which contains our publication including comments
         const publication = {
+          number: run,
           author: postAuthorName,
           post: postTextContent,
           date: postRelDate,
@@ -896,6 +969,9 @@ async function facebookMain(
       JSON.stringify(allPublicationsList, undefined, 4),
       {encoding: 'utf8'},
   );
+  if (arguments['debug'] === true) {
+    console.log('File successfully! written'); 
+  };
 // await browser.close();
 }
 
@@ -957,7 +1033,7 @@ async function main(
   page1 = await facebookLogIn(arguments, page1, setPageListeners);
   let page2 = await incognitoMode(browser);
   await page2.setUserAgent("User agent Mozilla/5.0 (Macintosh; Intel Mac OS X 10_16_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.0 Safari/537.36");
-  page2 = await facebookLogIn(arguments, page2, setPageListeners);
+  page2 = await facebookLogIn(arguments, page2, setPageListenersComments);
   // for (var i = 0; i < facebookGroupIdList.length; i++) {
   for (let i = 0; i < facebookGroupIdList.length; i++) {
     const id = facebookGroupIdList[i];
