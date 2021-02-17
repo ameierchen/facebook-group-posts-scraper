@@ -712,19 +712,28 @@ async function facebookMain(
   //save file into subfolder. Create new folder for every run by naming it by date with a number
   const today = new Date().toISOString().slice(0, 10)
   groupName = groupName.replace(/\//g, '_');
-  let numberedRun = 0;
-  let folder = arguments['output']  + today + '-' + numberedRun + '/';
-  do {
-    numberedRun++;
-    folder = arguments['output'] + today + '-' + numberedRun + '/';
-  } while ( fs.existsSync(folder) )
+  const  folder = arguments['output']  + groupName + '/';
   const fileName = folder + groupName + '.json';
   fs.mkdir( folder, (err) => { 
+    if (err) { 
+        return console.log(`Directory ${folder} already exists!`); 
+    }
+    if (arguments['debug'] === true) {
+      console.log(`Directory ${folder} created successfully!`); 
+    };
+  });
+  let pdfFolder = folder + today + '-' + "0" + '/';
+  let numberedRun = "0";
+  do {
+    numberedRun++;
+    pdfFolder = arguments['output'] + groupName + '/' + today + '-' + numberedRun + '/';
+  } while ( fs.existsSync(pdfFolder) )
+  fs.mkdir( pdfFolder, (err) => { 
       if (err) { 
           return console.error(err); 
       }
       if (arguments['debug'] === true) {
-        console.log(`Directory ${folder} created successfully!`); 
+        console.log(`Directory ${pdfFolder} created successfully!`); 
       };
   });
 
@@ -739,7 +748,7 @@ async function facebookMain(
     );
     pre = groupPostsHtmlElements.length;
     if ( ( end != "0" ) && ( pre > end ) ) {
-      await fastAutoScroll(page, sleep);
+      await fastAutoScroll(page1, sleep);
       break;
     };
     if (arguments['debug'] === true) {
@@ -876,6 +885,9 @@ async function facebookMain(
           } catch (err) {
             console.log(`WARNING: Scraping post failed on ${run} with ${err}`);
           }
+          if ( !postLinkAdress.startsWith("http") ) {
+            postLinkAdress = "https://m.facebook.com" + postLinkAdress;
+          }
         //const postContent = await groupPostsAuthorHtmlElements[i].$x('//article/div[@class="story_body_container"]//span[1]/p');
         // creates a preliminary publication object which contains author and text of our publication
         const publicationPre = {
@@ -897,7 +909,8 @@ async function facebookMain(
             isPublicationExists = true;
             break;
           } else {
-            // if publication does not exists in allPublictationList
+            exists = 0;
+            // if publication does not exists in allPublicationList
             isPublicationExists = false;
           }
         }
@@ -908,7 +921,7 @@ async function facebookMain(
                 if (arguments['debug'] === true) {
                   console.log(`getting comments from post`);
                 };
-                postComments = await getComments(arguments, postLinkAdress, page2, sleep, pos, folder);
+                postComments = await getComments(arguments, postLinkAdress, page2, sleep, pos, pdfFolder);
             } catch (err) {
                 postComments = "{}";
                 console.log(`WARNING: failed on scraping comments at post ${run}. Continuing...`);
@@ -919,7 +932,7 @@ async function facebookMain(
         };
         // creates a publication object which contains our publication including comments
         const publication = {
-          number: run,
+          number: pos,
           author: postAuthorName,
           post: postTextContent,
           date: postRelDate,
